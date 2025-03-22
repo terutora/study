@@ -24,6 +24,9 @@ export default function Timer() {
   const [todayPomodoros, setTodayPomodoros] = useState(0);
   const [pomodoroStudyTime, setPomodoroStudyTime] = useState(0);
 
+  // トラッキングモード（手動かポモドーロか）
+  const [trackingMode, setTrackingMode] = useState("manual"); // 'manual' または 'pomodoro'
+
   // タイマーの参照
   const timerRef = useRef(null);
   const studyTimerRef = useRef(null);
@@ -68,7 +71,7 @@ export default function Timer() {
     setTimeLeft(timeModes[currentMode]);
   }, [currentMode, pomodoroTime, shortBreakTime, longBreakTime]);
 
-  // タイマー終了時の処理部分の修正
+  // カウントダウンタイマーの処理
   useEffect(() => {
     if (isRunning) {
       timerRef.current = setInterval(() => {
@@ -126,28 +129,67 @@ export default function Timer() {
     return () => clearInterval(timerRef.current);
   }, [isRunning, currentMode, pomodoroGoal, pomodoroTime, completedPomodoros]);
 
+  // ポモドーロと学習時間トラッキングの連携
+  useEffect(() => {
+    // ポモドーロの集中モードが実行中の場合のみ学習時間をカウント
+    if (isRunning && currentMode === "pomodoro") {
+      if (trackingMode !== "pomodoro") {
+        setTrackingMode("pomodoro");
+      }
+
+      // 既存の手動トラッキングが動いていれば止める
+      if (isStudying) {
+        clearInterval(studyTimerRef.current);
+      }
+
+      // ポモドーロ専用のタイマーカウント（秒単位で加算）
+      studyTimerRef.current = setInterval(() => {
+        setTotalStudyTime((prev) => prev + 1);
+        setTodayStudyTime((prev) => prev + 1);
+      }, 1000);
+    } else if (trackingMode === "pomodoro") {
+      // ポモドーロが一時停止されたか、集中モード以外になった場合
+      clearInterval(studyTimerRef.current);
+    }
+
+    return () => {
+      if (trackingMode === "pomodoro") {
+        clearInterval(studyTimerRef.current);
+      }
+    };
+  }, [isRunning, currentMode, trackingMode, isStudying]);
+
   // 手動の勉強時間追跡（ポモドーロとは別）
   useEffect(() => {
     if (isStudying) {
+      // 手動トラッキングモードに設定
+      setTrackingMode("manual");
+
+      // ポモドーロが実行中の場合は、手動トラッキングを開始しない
+      if (isRunning && currentMode === "pomodoro") {
+        return;
+      }
+
       setStudyStartTime(Date.now());
       studyTimerRef.current = setInterval(() => {
         setTotalStudyTime((prev) => prev + 1);
         setTodayStudyTime((prev) => prev + 1);
       }, 1000);
-    } else {
+    } else if (trackingMode === "manual") {
+      // 手動トラッキングが停止された場合
       clearInterval(studyTimerRef.current);
     }
 
-    return () => clearInterval(studyTimerRef.current);
-  }, [isStudying]);
+    return () => {
+      if (trackingMode === "manual") {
+        clearInterval(studyTimerRef.current);
+      }
+    };
+  }, [isStudying, isRunning, currentMode, trackingMode]);
 
   // タイマーコントロール
   const startTimer = () => {
     setIsRunning(true);
-    // ポモドーロを開始したら自動的に勉強モードをON
-    if (currentMode === "pomodoro" && !isStudying) {
-      setIsStudying(true);
-    }
   };
 
   const pauseTimer = () => {
@@ -160,6 +202,12 @@ export default function Timer() {
   };
 
   const toggleStudyTimer = () => {
+    // ポモドーロの集中モードが動いている場合は、手動トラッキングを開始しない
+    if (isRunning && currentMode === "pomodoro") {
+      alert("ポモドーロの集中モード中は手動トラッキングを開始できません。\nポモドーロ中は自動的に学習時間が記録されています。");
+      return;
+    }
+
     setIsStudying(!isStudying);
   };
 
