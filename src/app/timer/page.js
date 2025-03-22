@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useUser } from "@clerk/nextjs";
 
 export default function Timer() {
   // ポモドーロタイマーの状態
@@ -20,6 +21,9 @@ export default function Timer() {
 
   // 現在時刻の状態
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Clerkのユーザー情報
+  const { isSignedIn, user } = useUser();
 
   // タイマーの参照
   const timerRef = useRef(null);
@@ -50,6 +54,48 @@ export default function Timer() {
     longBreak: "bg-blue-600",
   };
 
+  // APIからデータをロードする関数
+  const loadStudyData = async () => {
+    if (!isSignedIn) return;
+
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const response = await fetch(`/api/pomodoro?date=${today}`);
+
+      if (response.ok) {
+        const data = await response.json();
+        setTodayStudyTime(data.todayStudyTime || 0);
+        setTodayPomodoros(data.todayPomodoros || 0);
+      } else {
+        console.error("Failed to load study data");
+      }
+    } catch (error) {
+      console.error("Error loading study data:", error);
+    }
+  };
+
+  // APIにデータを保存する関数
+  const saveStudyData = async () => {
+    if (!isSignedIn) return;
+
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      await fetch("/api/pomodoro", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          date: today,
+          todayStudyTime,
+          todayPomodoros,
+        }),
+      });
+    } catch (error) {
+      console.error("Error saving study data:", error);
+    }
+  };
+
   // 初期化時に Audio オブジェクトを作成と現在時刻の更新
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -67,6 +113,38 @@ export default function Timer() {
       clearInterval(clockRef.current);
     };
   }, []);
+
+  // 認証状態が変わったらデータをロード
+  useEffect(() => {
+    if (isSignedIn) {
+      loadStudyData();
+    }
+  }, [isSignedIn]);
+
+  // 定期的にデータを保存（1分ごと）
+  useEffect(() => {
+    if (!isSignedIn) return;
+
+    const saveInterval = setInterval(() => {
+      saveStudyData();
+    }, 60000); // 1分ごとに保存
+
+    return () => clearInterval(saveInterval);
+  }, [isSignedIn, todayStudyTime, todayPomodoros]);
+
+  // ページを離れる前に保存
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      saveStudyData();
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      saveStudyData(); // コンポーネントのアンマウント時にも保存
+    };
+  }, [todayStudyTime, todayPomodoros]);
 
   // モード変更時にタイマーをリセット
   useEffect(() => {
@@ -221,6 +299,14 @@ export default function Timer() {
     }
   };
 
+  // ユーザーへの挨拶を表示
+  const userGreeting = () => {
+    if (isSignedIn && user) {
+      return <div className="text-sm text-gray-600 mb-2">こんにちは、{user.firstName || "ユーザー"}さん！今日も頑張りましょう。</div>;
+    }
+    return null;
+  };
+
   return (
     <div className="max-w-6xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">学習タイマー</h1>
@@ -294,6 +380,8 @@ export default function Timer() {
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-xl font-medium mb-4">学習状況</h2>
 
+          {userGreeting()}
+
           <div className="mb-6 text-center">
             {/* 現在時刻 */}
             <div className="bg-indigo-100 p-6 rounded-lg mb-4">
@@ -319,6 +407,7 @@ export default function Timer() {
             <div className="bg-indigo-50 p-4 rounded-lg text-sm text-indigo-800">
               <p>ポモドーロタイマーの集中モード中のみ学習時間がカウントされます。休憩時間はカウントされません。</p>
               <p className="mt-2">タイマーの一時停止中も学習時間はカウントされません。</p>
+              {isSignedIn && <p className="mt-2">学習データは自動的に保存され、別のデバイスからもアクセスできます。</p>}
             </div>
           </div>
         </div>
@@ -326,4 +415,3 @@ export default function Timer() {
     </div>
   );
 }
-最終的なコードね;
