@@ -68,7 +68,7 @@ export default function Timer() {
     setTimeLeft(timeModes[currentMode]);
   }, [currentMode, pomodoroTime, shortBreakTime, longBreakTime]);
 
-  // カウントダウンタイマーの処理
+  // タイマー終了時の処理部分の修正
   useEffect(() => {
     if (isRunning) {
       timerRef.current = setInterval(() => {
@@ -88,32 +88,32 @@ export default function Timer() {
               setTodayStudyTime((prev) => prev + minutes * 60);
               setPomodoroStudyTime((prev) => prev + minutes * 60);
 
-              setCompletedPomodoros((prev) => {
-                const newCount = prev + 1;
-                setTodayPomodoros(todayPomodoros + 1);
+              // カウンターの問題修正: setCompletedPomodorosを1回だけ呼び出す
+              const newCount = completedPomodoros + 1;
+              setCompletedPomodoros(newCount);
+              setTodayPomodoros((prev) => prev + 1);
 
-                // Pomodoro完了数に応じて次のモードを決定
-                if (newCount % pomodoroGoal === 0) {
-                  setCurrentMode("longBreak");
-                } else {
-                  setCurrentMode("shortBreak");
-                }
-
-                // 修正: 2秒後に休憩タイマーを自動的に開始
-                setTimeout(() => {
-                  setIsRunning(true);
-                }, 2000);
-
-                return newCount;
-              });
-            } else {
-              // 休憩後は集中モードに戻る
+              // Pomodoro完了数に応じて次のモードを決定
+              if (newCount % pomodoroGoal === 0) {
+                setCurrentMode("longBreak");
+              } else {
+                setCurrentMode("shortBreak");
+              }
+            } else if (currentMode === "longBreak") {
+              // 修正: 長休憩後はカウンターをリセット
+              setCompletedPomodoros(0);
               setCurrentMode("pomodoro");
-
-              // 修正: 休憩後は自動的に集中タイマーは開始しない
-              // ユーザーが明示的に開始ボタンを押す必要がある
+            } else {
+              // 短い休憩後は集中モードに戻る
+              setCurrentMode("pomodoro");
             }
 
+            // どのモードからどのモードに移行しても、2秒後に自動的にタイマーを開始
+            setTimeout(() => {
+              setIsRunning(true);
+            }, 2000);
+
+            setIsRunning(false);
             return 0;
           }
           return prevTime - 1;
@@ -124,7 +124,7 @@ export default function Timer() {
     }
 
     return () => clearInterval(timerRef.current);
-  }, [isRunning, currentMode, pomodoroGoal, pomodoroTime, todayPomodoros]);
+  }, [isRunning, currentMode, pomodoroGoal, pomodoroTime, completedPomodoros]);
 
   // 手動の勉強時間追跡（ポモドーロとは別）
   useEffect(() => {
