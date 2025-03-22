@@ -71,7 +71,7 @@ export default function Timer() {
     setTimeLeft(timeModes[currentMode]);
   }, [currentMode, pomodoroTime, shortBreakTime, longBreakTime]);
 
-  // カウントダウンタイマーの処理
+  // ポモドーロタイマー終了時の処理部分を修正
   useEffect(() => {
     if (isRunning) {
       timerRef.current = setInterval(() => {
@@ -85,13 +85,10 @@ export default function Timer() {
 
             // タイマー終了時の処理
             if (currentMode === "pomodoro") {
-              // ポモドーロが完了したら学習時間を加算
-              const minutes = pomodoroTime / 60;
-              setTotalStudyTime((prev) => prev + minutes * 60);
-              setTodayStudyTime((prev) => prev + minutes * 60);
-              setPomodoroStudyTime((prev) => prev + minutes * 60);
+              // 重複カウントを避けるため、ここでの学習時間一括加算を削除
+              // リアルタイムカウントのみで記録する
 
-              // カウンターの問題修正: setCompletedPomodorosを1回だけ呼び出す
+              // カウンターの更新
               const newCount = completedPomodoros + 1;
               setCompletedPomodoros(newCount);
               setTodayPomodoros((prev) => prev + 1);
@@ -103,7 +100,7 @@ export default function Timer() {
                 setCurrentMode("shortBreak");
               }
             } else if (currentMode === "longBreak") {
-              // 修正: 長休憩後はカウンターをリセット
+              // 長休憩後はカウンターをリセット
               setCompletedPomodoros(0);
               setCurrentMode("pomodoro");
             } else {
@@ -127,7 +124,7 @@ export default function Timer() {
     }
 
     return () => clearInterval(timerRef.current);
-  }, [isRunning, currentMode, pomodoroGoal, pomodoroTime, completedPomodoros]);
+  }, [isRunning, currentMode, pomodoroGoal, completedPomodoros, todayPomodoros]);
 
   // ポモドーロと学習時間トラッキングの連携
   useEffect(() => {
