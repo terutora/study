@@ -14,22 +14,17 @@ export default function Timer() {
   const [completedPomodoros, setCompletedPomodoros] = useState(0);
   const [pomodoroGoal, setPomodoroGoal] = useState(4);
 
-  // 総合タイマーの状態
-  const [totalStudyTime, setTotalStudyTime] = useState(0);
+  // 学習時間の状態
   const [todayStudyTime, setTodayStudyTime] = useState(0);
-  const [isStudying, setIsStudying] = useState(false);
-  const [studyStartTime, setStudyStartTime] = useState(null);
-
-  // 今日のポモドーロ回数とその学習時間
   const [todayPomodoros, setTodayPomodoros] = useState(0);
-  const [pomodoroStudyTime, setPomodoroStudyTime] = useState(0);
 
-  // トラッキングモード（手動かポモドーロか）
-  const [trackingMode, setTrackingMode] = useState("manual"); // 'manual' または 'pomodoro'
+  // 現在時刻の状態
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   // タイマーの参照
   const timerRef = useRef(null);
   const studyTimerRef = useRef(null);
+  const clockRef = useRef(null);
 
   // 音声通知
   const alarmSound = useRef(null);
@@ -55,14 +50,21 @@ export default function Timer() {
     longBreak: "bg-blue-600",
   };
 
-  // 初期化時に Audio オブジェクトを作成
+  // 初期化時に Audio オブジェクトを作成と現在時刻の更新
   useEffect(() => {
     if (typeof window !== "undefined") {
       alarmSound.current = new Audio("/alarm.mp3"); // 音声ファイルのパスを指定（publicディレクトリに配置）
+
+      // 現在時刻を1分ごとに更新
+      clockRef.current = setInterval(() => {
+        setCurrentTime(new Date());
+      }, 60000); // 60秒 = 1分ごとに更新
     }
+
     return () => {
       clearInterval(timerRef.current);
       clearInterval(studyTimerRef.current);
+      clearInterval(clockRef.current);
     };
   }, []);
 
@@ -71,7 +73,7 @@ export default function Timer() {
     setTimeLeft(timeModes[currentMode]);
   }, [currentMode, pomodoroTime, shortBreakTime, longBreakTime]);
 
-  // ポモドーロタイマー終了時の処理部分を修正
+  // タイマー終了時のポモドーロカウンター処理修正
   useEffect(() => {
     if (isRunning) {
       timerRef.current = setInterval(() => {
@@ -85,13 +87,12 @@ export default function Timer() {
 
             // タイマー終了時の処理
             if (currentMode === "pomodoro") {
-              // 重複カウントを避けるため、ここでの学習時間一括加算を削除
-              // リアルタイムカウントのみで記録する
-
-              // カウンターの更新
+              // カウンターの更新 - ポモドーロ完了数のみここで更新
               const newCount = completedPomodoros + 1;
               setCompletedPomodoros(newCount);
-              setTodayPomodoros((prev) => prev + 1);
+
+              // 今日のポモドーロカウンターは別のuseEffectで更新するので、ここでは削除
+              // setTodayPomodoros(prev => prev + 1);
 
               // Pomodoro完了数に応じて次のモードを決定
               if (newCount % pomodoroGoal === 0) {
@@ -124,65 +125,39 @@ export default function Timer() {
     }
 
     return () => clearInterval(timerRef.current);
-  }, [isRunning, currentMode, pomodoroGoal, completedPomodoros, todayPomodoros]);
+  }, [isRunning, currentMode, pomodoroGoal, completedPomodoros]);
+
+  // 別のカウンターuseEffectを追加
+  useEffect(() => {
+    // completedPomodorosが変化したとき、今日のポモドーロカウンターを更新
+    // 長休憩後のリセットでは増加しないように条件を追加
+    if (completedPomodoros > 0 && completedPomodoros % pomodoroGoal !== 0) {
+      setTodayPomodoros(Math.ceil(completedPomodoros));
+    } else if (completedPomodoros === 0) {
+      // カウンターがリセットされた場合は何もしない
+    } else {
+      // 長休憩に入るタイミング
+      setTodayPomodoros(Math.ceil(completedPomodoros / pomodoroGoal) * pomodoroGoal);
+    }
+  }, [completedPomodoros, pomodoroGoal]);
 
   // ポモドーロと学習時間トラッキングの連携
   useEffect(() => {
     // ポモドーロの集中モードが実行中の場合のみ学習時間をカウント
     if (isRunning && currentMode === "pomodoro") {
-      if (trackingMode !== "pomodoro") {
-        setTrackingMode("pomodoro");
-      }
-
-      // 既存の手動トラッキングが動いていれば止める
-      if (isStudying) {
-        clearInterval(studyTimerRef.current);
-      }
-
       // ポモドーロ専用のタイマーカウント（秒単位で加算）
       studyTimerRef.current = setInterval(() => {
-        setTotalStudyTime((prev) => prev + 1);
         setTodayStudyTime((prev) => prev + 1);
       }, 1000);
-    } else if (trackingMode === "pomodoro") {
+    } else {
       // ポモドーロが一時停止されたか、集中モード以外になった場合
       clearInterval(studyTimerRef.current);
     }
 
     return () => {
-      if (trackingMode === "pomodoro") {
-        clearInterval(studyTimerRef.current);
-      }
-    };
-  }, [isRunning, currentMode, trackingMode, isStudying]);
-
-  // 手動の勉強時間追跡（ポモドーロとは別）
-  useEffect(() => {
-    if (isStudying) {
-      // 手動トラッキングモードに設定
-      setTrackingMode("manual");
-
-      // ポモドーロが実行中の場合は、手動トラッキングを開始しない
-      if (isRunning && currentMode === "pomodoro") {
-        return;
-      }
-
-      setStudyStartTime(Date.now());
-      studyTimerRef.current = setInterval(() => {
-        setTotalStudyTime((prev) => prev + 1);
-        setTodayStudyTime((prev) => prev + 1);
-      }, 1000);
-    } else if (trackingMode === "manual") {
-      // 手動トラッキングが停止された場合
       clearInterval(studyTimerRef.current);
-    }
-
-    return () => {
-      if (trackingMode === "manual") {
-        clearInterval(studyTimerRef.current);
-      }
     };
-  }, [isStudying, isRunning, currentMode, trackingMode]);
+  }, [isRunning, currentMode]);
 
   // タイマーコントロール
   const startTimer = () => {
@@ -198,16 +173,6 @@ export default function Timer() {
     setTimeLeft(timeModes[currentMode]);
   };
 
-  const toggleStudyTimer = () => {
-    // ポモドーロの集中モードが動いている場合は、手動トラッキングを開始しない
-    if (isRunning && currentMode === "pomodoro") {
-      alert("ポモドーロの集中モード中は手動トラッキングを開始できません。\nポモドーロ中は自動的に学習時間が記録されています。");
-      return;
-    }
-
-    setIsStudying(!isStudying);
-  };
-
   // 時間のフォーマット（秒→mm:ss）
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -221,6 +186,14 @@ export default function Timer() {
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
     return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  // 現在時刻のフォーマットを分単位に変更
+  const formatCurrentTime = (date) => {
+    return date.toLocaleTimeString("ja-JP", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   // 設定時間の更新
@@ -317,54 +290,35 @@ export default function Timer() {
           </div>
         </div>
 
-        {/* 総合学習時間タイマー */}
+        {/* 情報表示パネル */}
         <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-medium mb-4">総合学習時間</h2>
+          <h2 className="text-xl font-medium mb-4">学習状況</h2>
 
           <div className="mb-6 text-center">
+            {/* 現在時刻 */}
+            <div className="bg-indigo-100 p-6 rounded-lg mb-4">
+              <div className="text-sm text-indigo-600 mb-1">現在時刻</div>
+              <div className="text-4xl font-bold text-indigo-700">{formatCurrentTime(currentTime)}</div>
+            </div>
+
+            {/* 学習時間 */}
             <div className="bg-indigo-100 p-6 rounded-lg mb-4">
               <div className="text-sm text-indigo-600 mb-1">今日の学習時間</div>
               <div className="text-4xl font-bold text-indigo-700">{formatLongTime(todayStudyTime)}</div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div className="bg-gray-100 p-4 rounded-lg">
-                <div className="text-sm text-gray-600 mb-1">今日のポモドーロ</div>
-                <div className="text-2xl font-bold text-gray-700">{todayPomodoros}回</div>
-              </div>
-              <div className="bg-gray-100 p-4 rounded-lg">
-                <div className="text-sm text-gray-600 mb-1">ポモドーロ時間</div>
-                <div className="text-2xl font-bold text-gray-700">
-                  {Math.floor(pomodoroStudyTime / 3600)}時間
-                  {Math.floor((pomodoroStudyTime % 3600) / 60)}分
-                </div>
-              </div>
-            </div>
-
+            {/* ポモドーロ回数 */}
             <div className="bg-gray-100 p-6 rounded-lg">
-              <div className="text-sm text-gray-600 mb-1">累計学習時間</div>
-              <div className="text-4xl font-bold text-gray-700">{formatLongTime(totalStudyTime)}</div>
+              <div className="text-sm text-gray-600 mb-1">今日のポモドーロ</div>
+              <div className="text-4xl font-bold text-gray-700">{todayPomodoros}回</div>
             </div>
           </div>
-
-          <div className="flex justify-center">
-            <button onClick={toggleStudyTimer} className={`px-6 py-3 rounded-md text-white ${isStudying ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"}`}>
-              {isStudying ? "勉強を終了する" : "勉強を開始する"}
-            </button>
-          </div>
-
-          {isStudying && (
-            <div className="mt-6 text-center">
-              <div className="text-sm text-gray-600 mb-1">勉強中...</div>
-              <div className="text-xl font-medium">開始時間: {new Date(studyStartTime).toLocaleTimeString()}</div>
-            </div>
-          )}
 
           <div className="border-t mt-6 pt-4">
-            <h3 className="font-medium mb-3">学習記録のヒント</h3>
+            <h3 className="font-medium mb-3">ヒント</h3>
             <div className="bg-indigo-50 p-4 rounded-lg text-sm text-indigo-800">
-              <p>ポモドーロタイマーを使用すると、集中時間が自動的に学習時間として記録されます。休憩時間は計測されません。</p>
-              <p className="mt-2">手動の「勉強を開始する」ボタンは、ポモドーロを使わない学習や、異なる学習方法を使用する場合に便利です。</p>
+              <p>ポモドーロタイマーの集中モード中のみ学習時間がカウントされます。休憩時間はカウントされません。</p>
+              <p className="mt-2">タイマーの一時停止中も学習時間はカウントされません。</p>
             </div>
           </div>
         </div>
@@ -372,3 +326,4 @@ export default function Timer() {
     </div>
   );
 }
+最終的なコードね;
