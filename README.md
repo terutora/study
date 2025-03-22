@@ -1,19 +1,48 @@
-# 初期ディレクトリ構造
+# ディレクトリ構造
 
 ```plaintext
-src/
-├── app/
-│ ├── page.js # ホームページ
-│ ├── layout.js # 共通レイアウト
-│ ├── auth/ # 認証関連ページ
-│ ├── dashboard/ # ダッシュボード
-│ ├── tasks/ # Todo タスク管理ページ
-│ ├── notes/ # メモ機能ページ
-│ ├── timer/ # ポモドーロ＆総合タイマー
-│ ├── analytics/ # 勉強時間分析・可視化
-│ ├── rewards/ # リワードシステム
-├── components/ # 再利用可能なコンポーネント
-├── lib/ # ユーティリティ関数やヘルパー
-├── hooks/ # カスタム React Hooks
-├── context/ # Context プロバイダー
+study/
+├── .env.local                # 環境変数（実際の値）
+├── .env.example              # 環境変数の例
+├── middleware.js             # Clerk認証ミドルウェア
+├── package.json              # プロジェクト依存関係
+├── public/                   # 静的ファイル
+│   └── alarm.mp3             # タイマー用アラーム音
+├── src/
+│   ├── app/
+│   │   ├── analytics/
+│   │   │   └── page.js       # 分析ページ
+│   │   ├── api/
+│   │   │   ├── pomodoro/
+│   │   │   │   └── route.js  # ポモドーロデータAPI
+│   │   │   └── webhook/
+│   │   │       └── clerk/
+│   │   │           └── route.js  # Clerkウェブフック
+│   │   ├── auth/
+│   │   │   ├── signin/
+│   │   │   │   └── page.js   # サインインページ
+│   │   │   └── signup/
+│   │   │       └── page.js   # サインアップページ
+│   │   ├── dashboard/
+│   │   │   └── page.js       # ダッシュボードページ
+│   │   ├── notes/
+│   │   │   └── page.js       # メモページ
+│   │   ├── rewards/
+│   │   │   └── page.js       # リワードページ
+│   │   ├── tasks/
+│   │   │   └── page.js       # タスクページ
+│   │   ├── timer/
+│   │   │   └── page.js       # タイマーページ
+│   │   ├── favicon.ico       # ファビコン
+│   │   ├── globals.css       # グローバルスタイル
+│   │   ├── layout.js         # ルートレイアウト
+│   │   └── page.js           # ホームページ
+│   ├── components/
+│   │   ├── Navbar.js         # ナビゲーションバー
+│   │   └── Sidebar.js        # サイドバー
+│   └── lib/
+│       └── supabase.js       # Supabase接続・ヘルパー関数
+└── supabase/
+    └── migrations/
+        └── 00001_create_tables.sql  # テーブル作成SQL
 ```
