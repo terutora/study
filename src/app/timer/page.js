@@ -98,13 +98,22 @@ export default function Timer() {
                 } else {
                   setCurrentMode("shortBreak");
                 }
+
+                // 修正: 2秒後に休憩タイマーを自動的に開始
+                setTimeout(() => {
+                  setIsRunning(true);
+                }, 2000);
+
                 return newCount;
               });
             } else {
               // 休憩後は集中モードに戻る
               setCurrentMode("pomodoro");
+
+              // 修正: 休憩後は自動的に集中タイマーは開始しない
+              // ユーザーが明示的に開始ボタンを押す必要がある
             }
-            setIsRunning(false);
+
             return 0;
           }
           return prevTime - 1;
@@ -115,7 +124,7 @@ export default function Timer() {
     }
 
     return () => clearInterval(timerRef.current);
-  }, [isRunning, currentMode, pomodoroGoal, pomodoroTime]);
+  }, [isRunning, currentMode, pomodoroGoal, pomodoroTime, todayPomodoros]);
 
   // 手動の勉強時間追跡（ポモドーロとは別）
   useEffect(() => {
