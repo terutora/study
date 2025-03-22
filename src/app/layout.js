@@ -1,6 +1,7 @@
 // src/app/layout.js
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { ClerkProvider } from "@clerk/nextjs";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
 
@@ -13,14 +14,16 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="ja">
-      <body className={inter.className}>
-        <Navbar />
-        <div className="flex h-screen pt-16">
-          <Sidebar />
-          <main className="flex-1 ml-64 p-6 bg-gray-50 overflow-y-auto">{children}</main>
-        </div>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="ja">
+        <body className={inter.className}>
+          <Navbar />
+          <div className="flex h-screen pt-16">
+            <Sidebar />
+            <main className="flex-1 ml-64 p-6 bg-gray-50 overflow-y-auto">{children}</main>
+          </div>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
